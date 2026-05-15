@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8" />
+<title>Prosperos — Print</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  @page { size: A3 portrait; margin: 0; }
+  html, body { background: var(--bg) !important; }
+
+  /* Hide interactive chrome */
+  .twk-panel, .twk-trigger { display: none !important; }
+
+  /* Make header non-sticky in print so it doesn't repeat oddly */
+  header.site {
+    position: static !important;
+    background: var(--bg) !important;
+    backdrop-filter: none !important;
+  }
+
+  /* Each "page" block is a top-level rendered route, separated for print */
+  .print-page {
+    break-after: page;
+    page-break-after: always;
+    background: var(--bg);
+  }
+  .print-page:last-child { break-after: auto; page-break-after: auto; }
+
+  .print-page-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-4);
+    padding: 16px 48px 0;
+    background: var(--bg);
+  }
+
+  /* Avoid splitting key blocks across pages */
+  .opg-card,
+  .case-card,
+  .know-tile,
+  .stat,
+  .step,
+  .ambition,
+  .cta-panel,
+  .specialist-card,
+  .card,
+  .quote {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  section { break-inside: avoid-page; }
+
+  /* Disable hover transforms / transitions in print */
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+
+  /* Print color fidelity */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Mega menus shouldn't pop in print */
+  .mega { display: none !important; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+// Match what was last saved in the live design
+window.TWEAK_DEFAULTS = {
+  "accent": "moss",
+  "hero": "B",
+  "displayType": "sans",
+  "showGrid": false
+};
+</script>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="primitives.jsx"></script>
+<script type="text/babel" src="nav.jsx"></script>
+<script type="text/babel" src="footer.jsx"></script>
+<script type="text/babel" src="homepage.jsx"></script>
+<script type="text/babel" src="solution.jsx"></script>
+<script type="text/babel" src="audience.jsx"></script>
+<script type="text/babel" src="knowledge.jsx"></script>
+<script type="text/babel" src="case.jsx"></script>
+<script type="text/babel" src="app.jsx"></script>
+
+<script type="text/babel">
+// Override the App: render every page stacked, with page breaks between them.
+const PRINT_PAGES = [
+  { key: "home", label: "01 · Homepage", Cmp: Homepage, props: { hero: window.TWEAK_DEFAULTS.hero } },
+  { key: "solution", label: "02 · Oplossingspagina · Compliance & wetgeving", Cmp: SolutionPage },
+  { key: "audience", label: "03 · Doelgroeppagina · Woningcorporaties", Cmp: AudiencePage },
+  { key: "knowledge", label: "04 · Kennis/themapagina · EPBD IV", Cmp: KnowledgePage },
+  { key: "case", label: "05 · Casepagina", Cmp: CasePage },
+  { key: "over", label: "06 · Over Prosperos", Cmp: OverPage },
+  { key: "contact", label: "07 · Contactpagina", Cmp: ContactPage },
+];
+
+function PrintApp() {
+  const t = window.TWEAK_DEFAULTS;
+  // navigate is a no-op in print
+  const navigate = () => {};
+  return (
+    <div className={`theme-${t.accent}`} data-display-type={t.displayType}>
+      {PRINT_PAGES.map(({ key, label, Cmp, props }) => (
+        <div key={key} className="print-page">
+          <div className="print-page-label">{label}</div>
+          <Nav current={key} navigate={navigate} />
+          <Cmp navigate={navigate} {...(props || {})} />
+          <Footer navigate={navigate} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Wait for fonts + babel transforms + a short settle, then print
+(async () => {
+  // Replace the ReactDOM root mount that app.jsx already set up
+  const root = document.getElementById("root");
+  root.innerHTML = "";
+  ReactDOM.createRoot(root).render(<PrintApp />);
+
+  if (document.fonts && document.fonts.ready) {
+    try { await document.fonts.ready; } catch (e) {}
+  }
+  // Let images decode and React paint
+  await new Promise((r) => setTimeout(r, 800));
+  // Wait for any visible <img> elements to load
+  const imgs = Array.from(document.querySelectorAll("img"));
+  await Promise.all(imgs.map((img) => img.complete ? Promise.resolve() : new Promise((res) => {
+    img.addEventListener("load", res, { once: true });
+    img.addEventListener("error", res, { once: true });
+  })));
+  await new Promise((r) => setTimeout(r, 500));
+  window.print();
+})();
+</script>
+</body>
+</html>
